@@ -1,6 +1,6 @@
 # overview
 
-the system package is a box of tools to make an object oriented representation of a system defined by a flat or hierarchical data base containing system configurations. 
+The system package is a box of tools to make an object oriented representation of a system defined by a flat or hierarchical data base containing system configurations. 
 The two main objects are System and Collection. System describe one system and 
 all the subsystems attached. Collection is used create a (sub)-system within the context of a parent system.
 The use of a flat or hierarchical data base can be used to described the full System and sub system parameters. In this case the Collection is in charge of searching the database (can be anything) to get the right (sub-)system parameters. The data base is shared among system and sub-system.
@@ -19,13 +19,15 @@ is the same as:
     TemperatureSensor = System.Pattern(name="tempsensor", status="unknown", unit="K")
 
 # Collection
-the goal of Collection is to get the right system object given the parent system context.
+
+The goal of Collection is to get the right system object given the parent system context.
 Collection makes the link in between the data base (if any) and the system.
 
 a Collection object must define some methods:
-    - get_ids: must return a list of sub-system ids if applicable
-    - get_parameters: must return a dictionary of default parameters for a given id
-    - get_id: optional, in case the Collection object is called without id (or id=None) this function must return a default id if it is relevant.
+
+- `get_ids`: must return a list of sub-system ids if applicable
+- `get_parameters`: must return a dictionary of default parameters for a given id
+- `get_id`: optional, in case the Collection object is called without id (or id=None) this function must return a default `id` if it is relevant.
 
 the get method can also be redefined but will make the get_parameters obsolete, it can be used to make more complex behavior.
 
@@ -58,7 +60,7 @@ Now we can create the `TempSensor` class and the `TempSensors` collection. the T
             name = "tempsensor" # name of the child system, optional
             cls = TempSensor    # class of the child system
 
-            def get_ids(self, parent): # return a list of sensor id 
+            def get_ids(self, parent, link): # return a list of sensor id 
                 if parent is None: # return the full list
                     for sensor in  db["tempsensors"].keys():
                         yield sensor
@@ -72,10 +74,10 @@ Now we can create the `TempSensor` class and the `TempSensors` collection. the T
                     if sensor in roomInfo['tempsensors']:
                         yield sensor
 
-            def get_parameters(self, parent, id):
+            def get_parameters(self, parent, id, link):
                 return parent.db["tempsensors"][id]
 
-            def get_id(self, parent): # called if id is None
+            def get_id(self, parent, link): # called if id is None
                 room = parent.get("room", None)
                 if room is None:
                     raise ValueError("No room information")
@@ -140,3 +142,54 @@ Use example:
         6
         >>> w, h =  temp.room.gets('width', 'height')
 
+If one use only simple relation in between system and data base (or no data base at all) is is clever to redefine the Collection object according to what is inside your data base.
+For instance one could imagine a purely hierarchical dict structure for the data base and make generic collection objects:
+
+        db = { 'house': {
+                         'childs': [
+                            ('kitchen', {'width':4, "height":3, 
+                                         'childs':[ 
+                                            (3, {"type":"pt100", "unit":"k",  "location":"roof"})
+                                            ]
+                                        }
+                            ),
+                            ('living_room', {"width":6, "height":4.5, 
+                                            'childs':[
+                                            (2,{"type":"pt100", "unit":"k", "location":"roof"}),
+                                            (4,{"type":"pt100", "unit":"k", "location":"window"}),
+                                            (10,{"type":"pt100", "unit":"k", "location":"floor"})
+                                            ]}
+                            ),
+                            ('bed_room', {"width":2, "height":2, 'childs':[]})]
+                        }
+                    }
+
+        class MyCollection(Collection):
+            def get_db(self, parent, link):
+                return parent.db['childs']
+
+            def get_id(self, parent, link):
+
+
+
+
+
+
+
+
+
+                                }}}} 
+              }
+        db = {
+            "rooms" :{
+                "kitchen": {"width":4, "height":3, "tempsensors":[3]},
+                "living_room": {"width":6, "height":4.5, "tempsensors":[2,4,10]},
+                "bed_room": {"width":2, "height":2, "tempsensors":[]}
+            },
+            "tempsensors" : {
+                3 :  {"type":"pt100", "unit":"k", "location":"roof"},
+                2  : {"type":"pt100", "unit":"k", "location":"roof"},
+                4  : {"type":"pt100", "unit":"k", "location":"window"},
+                10 : {"type":"pt100", "unit":"k", "location":"floor"}
+            }
+        }
